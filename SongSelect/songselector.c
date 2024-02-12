@@ -162,6 +162,9 @@ int prev_id_r=0;
 int tpush=0;
 char* get_id_path(){
 	if(p_id_h==c_hour){
+		if(tpush==1){
+			return NULL;
+		}
 		if(c_min<p_id_min+id_freq){
 			return NULL;
 		}
