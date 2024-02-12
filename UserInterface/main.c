@@ -15,7 +15,9 @@ void draw_main_screen(char pl){
 	clear();
 	mvprintw(0,0,"-current song: %s",song);
 	mvprintw(1,0,"-progress:");
+	if(song!=NULL){
 	free(song);
+	}
 	int mwidth=COLS/2;
 	int time=get_total_time();
 	int cur=get_position();
