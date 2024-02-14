@@ -7,5 +7,6 @@
   void init_fourier_transform(int max,double depth);//depth must be 1 or less, the lower the depth the more points get put in
   void free_fourier_transform();
   void f16_array_to_int(char* in,int size,int* buffer);
+  int get_freq_at_index(int index);
   //size of array buffer should be size/2
 #endif // !_FOURIER
