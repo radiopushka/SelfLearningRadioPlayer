@@ -116,7 +116,7 @@ void printspect(double* trans,int size){
       //mvwaddch(stdscr,0,i-print_offset,screenbuff[0][i]);
       if(fprint%10==0){
         fpull=get_freq_at_index(i);
-        mvprintw(0,i-print_offset,"%dHz",fpull*LOWEST_F);
+        mvprintw(0,i-print_offset-1,"|%dHz",fpull*LOWEST_F);
       }
       scrnp++;
       fprint++;
@@ -125,6 +125,7 @@ void printspect(double* trans,int size){
       break;
     }
   }
+  mvprintw(LINES-1,0,"gain: %d",(int)amp);
 
 refresh();
 }
