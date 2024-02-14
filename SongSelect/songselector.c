@@ -161,6 +161,9 @@ char* generate_song_path(char* ignorepath){
 int prev_id_r=0;
 int tpush=0;
 char* get_id_path(){
+	if((60-id_freq)<=c_min){
+		return NULL;
+	}
 	if(p_id_h==c_hour){
 		if(tpush==1){
 			return NULL;
