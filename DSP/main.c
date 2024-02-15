@@ -225,6 +225,8 @@ int main(int argn,char* argv[]){
   pthread_mutex_init(&syncm,NULL);
   initscr();
   start_color();
+  noecho();
+  int pause=0;
   init_colorpairs();
   nodelay(stdscr, TRUE);
   keypad(stdscr,TRUE);
@@ -254,21 +256,30 @@ int main(int argn,char* argv[]){
     }
     c=wgetch(stdscr);
     if(count>fftspeed){
+      if(pause==0){
       pthread_mutex_lock(&syncm);
       f16_array_to_int(buffer,bsize,f16convert);
       new_data=1;
       pthread_mutex_unlock(&syncm);
+      }
       count=0;
     
     }
-  if(c!=-1&&c!=-102&&c!=3&&c!=2&&c!=5&&c!=4&&c!='w'&&c!='s'){
+  if(c!=-1&&c!=-102&&c!=3&&c!=2&&c!=5&&c!=4&&c!='w'&&c!='s'&&c!=' '){//I just added the keys here along the way as i came up with the interface
 
         break;
       }
+      if(c==' '){
+      	if(pause==0){
+      		pause=1;
+      	}else{
+      		pause=0;
+      	}
+      }
       if(c=='w'){
         amp=amp+1;
-        if(amp>20){
-          amp=20;
+        if(amp>400){
+          amp=400;
         }
       }
       if(c=='s'){
