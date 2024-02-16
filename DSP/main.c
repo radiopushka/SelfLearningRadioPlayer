@@ -5,12 +5,11 @@
 #include <ncurses.h>
 #include <math.h>
 #include <locale.h>
-#include <pthread.h>
 #include "cursescolors.c"
 
 #define SIZE 4000
 #define LOWEST_F 11
-#define FFT_SPEED_SPEC 40
+#define FFT_SPEED_SPEC 0
 #define FFT_SPEED_SINGLE 20 
 
 #define DEVICE "default"
@@ -198,31 +197,10 @@ void reset_ft(int direction){
 }
 int new_data=0;
 int argnextrac=0;
-void* fftthreadf(void*){
-   double* ppointer;
-   int ndcopy=0;
-   while(ndcopy!=-1){
-    pthread_mutex_lock(&syncm);
-    ndcopy=new_data;
-    if(new_data==1){
-      new_data=0;
-      ppointer=produce_period_gram(f16convert,SIZE);
-      if(argnextrac>1){
-        printft(ppointer,get_fourier_size());
-      }else{
-        printspect(ppointer,get_fourier_size());
-      }
-    }
-    pthread_mutex_unlock(&syncm);
-    sleep(0.01);
-  }
-  return NULL;
-}
+
 int main(int argn,char* argv[]){
   argnextrac=argn;
-  pthread_t fftthread;
   setlocale(LC_ALL, "");
-  pthread_mutex_init(&syncm,NULL);
   initscr();
   start_color();
   noecho();
@@ -245,22 +223,25 @@ int main(int argn,char* argv[]){
 		return 0;
 	}
   init_ft(argn);
-  pthread_create(&fftthread,NULL,*fftthreadf,NULL);
   int err;
   int count=0;
+  double* ppointer;
   char c=-1;
   while(1){
       count++;
-     if ((err = snd_pcm_readi (pcm_handle, buffer, 128)) != 128) {
+     if ((err = snd_pcm_readi (pcm_handle, buffer, SIZE)) != SIZE) {
       exit (1);
     }
     c=wgetch(stdscr);
     if(count>fftspeed){
       if(pause==0){
-      pthread_mutex_lock(&syncm);
-      f16_array_to_int(buffer,bsize,f16convert);
-      new_data=1;
-      pthread_mutex_unlock(&syncm);
+      	f16_array_to_int(buffer,bsize,f16convert);
+      	ppointer=produce_period_gram(f16convert,SIZE,0,0);
+      	if(argn>1){
+       	 printft(ppointer,get_fourier_size());
+      	}else{
+        	printspect(ppointer,get_fourier_size());
+      	}
       }
       count=0;
     
@@ -269,6 +250,7 @@ int main(int argn,char* argv[]){
 
         break;
       }
+      while(c!=-1){
       if(c==' '){
       	if(pause==0){
       		pause=1;
@@ -289,38 +271,41 @@ int main(int argn,char* argv[]){
         }
       }
       if(c==3){
-           pthread_mutex_lock(&syncm);
+         
           reset_ft(1);
-           pthread_mutex_unlock(&syncm);
+       
           
       }
       if(c==2){
-        pthread_mutex_lock(&syncm);
+      
         reset_ft(0);
-        pthread_mutex_unlock(&syncm);
+      
       }
       if(c==5){
-       pthread_mutex_lock(&syncm);
+      
         print_offset++;
         if(print_offset>(get_fourier_size()-COLS)){
             print_offset--;
         }
-        pthread_mutex_unlock(&syncm);
+        
       }
       if(c==4){
-       pthread_mutex_lock(&syncm);
+       
         print_offset--;
         if(print_offset<0){
           print_offset=0;
         }
-        pthread_mutex_unlock(&syncm);
+        
+      }
+      	ppointer=produce_period_gram(f16convert,SIZE,0,0);
+      	if(argn>1){
+       	 printft(ppointer,get_fourier_size());
+      	}else{
+        	printspect(ppointer,get_fourier_size());
+      	}
+       c=wgetch(stdscr);
       }
     }
-
-    pthread_mutex_lock(&syncm);
-    new_data=-1;
-    pthread_mutex_unlock(&syncm);
-  pthread_join(fftthread,NULL);
 
   free_ft();
   freescrbuff();
