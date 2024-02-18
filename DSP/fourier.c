@@ -110,6 +110,20 @@ double* produce_period_gram(int* buffer, int size,int start,int stop){//this siz
   return darray;
 
 }
+int find_max_freq(int size,int* buffer){
+	int i;
+	double maxf=0;
+	double f;
+	int thef=0;
+	for(i=0;i<(size>>1);i=i+1){
+    		f=calc_amplitude(buffer,size,i);
+ 	 	if(f>maxf){
+ 	 		maxf=f;
+ 	 		thef=i;
+ 	 	}
+ 	 }
+ 	 return thef;
+}
 int get_fourier_size(){
 	return gramsize;
 }

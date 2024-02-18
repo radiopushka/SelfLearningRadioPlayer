@@ -9,4 +9,5 @@
   void f16_array_to_int(char* in,int size,int* buffer);
   int get_freq_at_index(int index);
   //size of array buffer should be size/2
+  int find_max_freq(int size,int* buffer);
 #endif // !_FOURIER

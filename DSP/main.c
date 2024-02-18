@@ -8,13 +8,14 @@
 #include "cursescolors.c"
 
 #define SIZE 4000
-#define LOWEST_F 11
-#define FFT_SPEED_SPEC 0
+int D_SAMPLE=44100;
+int LOWEST_F=11;
+int FFT_SPEED_SPEC=0;
 #define FFT_SPEED_SINGLE 20 
 
 #define DEVICE "default"
 
-chtype printout[]={' '|COLOR_PAIR((1<<7)|(7&0)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&1)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&3)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&2)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&6)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&4)<<4|(7&0))};
+chtype printout[]={' '|COLOR_PAIR((1<<7)|(7&0)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&1)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&3)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&2)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&6)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&4)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&5)<<4|(7&0))};
 
 int print_offset=0;
 double amp=5.0;
@@ -28,16 +29,19 @@ chtype getfromdecimal(double ftout){
   if(ftout<20){
     return printout[1];
   }
-  if(ftout<30){
+  if(ftout<40){
     return printout[2];
   }
-  if(ftout<40){
+  if(ftout<60){
     return printout[3]; 
   }
-  if(ftout<50){
+  if(ftout<120){
     return printout[4];
   }
-  return printout[5];
+  if(ftout<240){
+    return printout[5];
+  }
+  return printout[6];
 }
 chtype** screenbuff=NULL;
 int bbsize=0;
@@ -92,8 +96,8 @@ void printspect(double* trans,int size){
     scrnp=0;
     for(i2=0;i2<size;i2++){
       screenbuff[i][i2]=screenbuff[i-1][i2];
-      if(i2>print_offset&&scrnp<COLS){
-        mvwaddch(stdscr,i,i2-print_offset,screenbuff[i][i2]);
+      if(scrnp<COLS){
+        mvwaddch(stdscr,i,i2,screenbuff[i][i2]);
 
         scrnp++;
       }
@@ -111,11 +115,11 @@ void printspect(double* trans,int size){
     coeff=coeff+step;
     abs=trans[i]*coeff;
     screenbuff[0][i]=getfromdecimal(abs);
-    if(i>print_offset&&scrnp<COLS){
+    if(scrnp<COLS){
       //mvwaddch(stdscr,0,i-print_offset,screenbuff[0][i]);
       if(fprint%10==0){
         fpull=get_freq_at_index(i);
-        mvprintw(0,i-print_offset-1,"|%dHz",fpull*LOWEST_F);
+        mvprintw(0,i,"|%dHz",fpull*LOWEST_F);
       }
       scrnp++;
       fprint++;
@@ -176,7 +180,6 @@ void init_ft(int argn){
   buffer=malloc(sizeof(char)*bsize);
 }
 void reset_ft(int direction){
-  print_offset=0;
   if(direction==1){
     gw=gw-0.002;
     if(gw<0.00001){
@@ -209,8 +212,12 @@ int main(int argn,char* argv[]){
   nodelay(stdscr, TRUE);
   keypad(stdscr,TRUE);
   int fftspeed=FFT_SPEED_SPEC;
-  if(argn>1){
+  if(argn>1&&argv[1][0]!='U'){
     fftspeed=FFT_SPEED_SINGLE;
+  }else if(argn>1&&argv[1][0]=='U'){
+  	D_SAMPLE=176400;
+  	LOWEST_F=44;
+  	FFT_SPEED_SPEC=400;
   }
   curs_set(0);
   snd_pcm_t *pcm_handle;
@@ -219,7 +226,7 @@ int main(int argn,char* argv[]){
 	if ( snd_pcm_open(&pcm_handle, DEVICE,SND_PCM_STREAM_CAPTURE, 0) < 0){
 		return 0;
 	} 
-	if(snd_pcm_set_params(pcm_handle, SND_PCM_FORMAT_S16_LE,SND_PCM_ACCESS_RW_INTERLEAVED, channels, 44100, 1, 500000)<0){
+	if(snd_pcm_set_params(pcm_handle, SND_PCM_FORMAT_S16_LE,SND_PCM_ACCESS_RW_INTERLEAVED, channels, D_SAMPLE, 1, 500000)<0){
 		return 0;
 	}
   init_ft(argn);
@@ -236,11 +243,16 @@ int main(int argn,char* argv[]){
     if(count>fftspeed){
       if(pause==0){
       	f16_array_to_int(buffer,bsize,f16convert);
-      	ppointer=produce_period_gram(f16convert,SIZE,0,0);
-      	if(argn>1){
-       	 printft(ppointer,get_fourier_size());
+      	int psize=get_fourier_size();
+      	if(psize>COLS)
+      		{
+      			psize=COLS;
+      	}
+      	ppointer=produce_period_gram(f16convert,SIZE,print_offset,COLS);
+      	if(argn>1&&argv[1][0]!='U'){
+       	 printft(ppointer,psize);
       	}else{
-        	printspect(ppointer,get_fourier_size());
+        	printspect(ppointer,psize);
       	}
       }
       count=0;
@@ -273,12 +285,18 @@ int main(int argn,char* argv[]){
       if(c==3){
          
           reset_ft(1);
-       
+        if(print_offset>(get_fourier_size()-COLS)){
+            print_offset=0;
+        }
           
       }
       if(c==2){
       
         reset_ft(0);
+         if(print_offset>(get_fourier_size()-COLS)){
+            print_offset=0;
+        }
+        
       
       }
       if(c==5){
@@ -297,11 +315,16 @@ int main(int argn,char* argv[]){
         }
         
       }
-      	ppointer=produce_period_gram(f16convert,SIZE,0,0);
-      	if(argn>1){
-       	 printft(ppointer,get_fourier_size());
+       int psize=get_fourier_size();
+      	if(psize>COLS)
+      		{
+      			psize=COLS;
+      	}
+      	ppointer=produce_period_gram(f16convert,SIZE,print_offset,COLS);
+      	if(argn>1&&argv[1][0]!='U'){
+       	 printft(ppointer,psize);
       	}else{
-        	printspect(ppointer,get_fourier_size());
+        	printspect(ppointer,psize);
       	}
        c=wgetch(stdscr);
       }
