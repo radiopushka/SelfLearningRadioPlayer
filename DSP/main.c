@@ -7,13 +7,13 @@
 #include <locale.h>
 #include "cursescolors.c"
 
-#define SIZE 4000
+int SIZE=4000;
 int D_SAMPLE=44100;
 int LOWEST_F=11;
 int FFT_SPEED_SPEC=0;
-#define FFT_SPEED_SINGLE 20 
+#define FFT_SPEED_SINGLE 0 
 
-#define DEVICE "default"
+char* DEVICE="default";
 
 chtype printout[]={' '|COLOR_PAIR((1<<7)|(7&0)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&1)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&3)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&2)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&6)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&4)<<4|(7&0)),' '|COLOR_PAIR((1<<7)|(7&5)<<4|(7&0))};
 
@@ -97,6 +97,7 @@ void printspect(double* trans,int size){
     for(i2=0;i2<size;i2++){
       screenbuff[i][i2]=screenbuff[i-1][i2];
       if(scrnp<COLS){
+      	
         mvwaddch(stdscr,i,i2,screenbuff[i][i2]);
 
         scrnp++;
@@ -115,10 +116,13 @@ void printspect(double* trans,int size){
     coeff=coeff+step;
     abs=trans[i]*coeff;
     screenbuff[0][i]=getfromdecimal(abs);
-    if(scrnp<COLS){
+    if(scrnp<COLS-10){
       //mvwaddch(stdscr,0,i-print_offset,screenbuff[0][i]);
       if(fprint%10==0){
         fpull=get_freq_at_index(i);
+        if(fpull<0){
+        	break;
+        }
         mvprintw(0,i,"|%dHz",fpull*LOWEST_F);
       }
       scrnp++;
@@ -194,6 +198,9 @@ void reset_ft(int direction){
       return;
     }
   }
+  if(direction==3){
+  	gw=0.4;
+  }
   free_fourier_transform();
   init_fourier_transform(SIZE,gw); 
 
@@ -202,6 +209,16 @@ int new_data=0;
 int argnextrac=0;
 
 int main(int argn,char* argv[]){
+  if(argv[1]!=NULL){
+  	if(strlen(argv[1])>1){
+  		if(argv[1][0]=='-'&&argv[1][1]=='h'){
+  			printf("usage, <S> for no waterfall, <U> for ultra sonic, <V> for custom followed by sample rate and optionally the device as well as FT size\n");
+  			printf("to find maximum sample rate run: grep -P 'rates|bits' /proc/asound/card0/codec\\#0\n");
+  			printf("to list all the available devices: arecord -L\n");
+  			return 0;
+  		}
+  	}
+  }
   argnextrac=argn;
   setlocale(LC_ALL, "");
   initscr();
@@ -212,21 +229,55 @@ int main(int argn,char* argv[]){
   nodelay(stdscr, TRUE);
   keypad(stdscr,TRUE);
   int fftspeed=FFT_SPEED_SPEC;
-  if(argn>1&&argv[1][0]!='U'){
+  if(argn>1&&argv[1][0]=='S'){
     fftspeed=FFT_SPEED_SINGLE;
   }else if(argn>1&&argv[1][0]=='U'){
   	D_SAMPLE=176400;
   	LOWEST_F=44;
-  	FFT_SPEED_SPEC=400;
+  	fftspeed=4;
+  }else if(argn>1&&argv[1][0]=='V'){
+  	if(argv[2]==NULL){
+  		endwin();
+  		printf("usage, <S> for no waterfall, <U> for ultra sonic, <V> for custom followed by sample rate and optionally the device as well as FT size\n");
+  		printf("to find maximum sample rate run: grep -P 'rates|bits' /proc/asound/card0/codec\\#0\n");
+  		printf("to list all the available devices: arecord -L\n");
+  		return 0;
+  	}
+  	if(argv[4]!=NULL){
+  		SIZE=atoi(argv[4]);
+  		if(SIZE<500){
+  			endwin();
+  			printf("FT size too small!\n");
+  			return 0;
+  		}
+  	}
+        D_SAMPLE=atoi(argv[2]);
+        if(D_SAMPLE<8000){
+        	endwin();
+        	printf("invalid sample rate\n");
+        	return 0;
+        }
+  	LOWEST_F=D_SAMPLE/4000;
+  	if(D_SAMPLE>44100){
+  		fftspeed=D_SAMPLE/44100;
+  	}
+  	if(argv[3]!=NULL){
+  		DEVICE=argv[3];
+  	}
+  	
   }
   curs_set(0);
   snd_pcm_t *pcm_handle;
 	int channels=1;
 	
 	if ( snd_pcm_open(&pcm_handle, DEVICE,SND_PCM_STREAM_CAPTURE, 0) < 0){
+		endwin();
+		printf("unable to open device \n");
 		return 0;
 	} 
 	if(snd_pcm_set_params(pcm_handle, SND_PCM_FORMAT_S16_LE,SND_PCM_ACCESS_RW_INTERLEAVED, channels, D_SAMPLE, 1, 500000)<0){
+		endwin();
+		printf("unable to set device \n");
 		return 0;
 	}
   init_ft(argn);
@@ -249,7 +300,7 @@ int main(int argn,char* argv[]){
       			psize=COLS;
       	}
       	ppointer=produce_period_gram(f16convert,SIZE,print_offset,COLS);
-      	if(argn>1&&argv[1][0]!='U'){
+      	if(argn>1&&argv[1][0]!='U'&&argv[1][0]!='V'){
        	 printft(ppointer,psize);
       	}else{
         	printspect(ppointer,psize);
@@ -258,7 +309,7 @@ int main(int argn,char* argv[]){
       count=0;
     
     }
-  if(c!=-1&&c!=-102&&c!=3&&c!=2&&c!=5&&c!=4&&c!='w'&&c!='s'&&c!=' '){//I just added the keys here along the way as i came up with the interface
+  if(c!=-1&&c!=-102&&c!=3&&c!=2&&c!=5&&c!=4&&c!='w'&&c!='s'&&c!=' '&&c!='0'&&c!='d'){//I just added the keys here along the way as i came up with the interface
 
         break;
       }
@@ -285,35 +336,35 @@ int main(int argn,char* argv[]){
       if(c==3){
          
           reset_ft(1);
-        if(print_offset>(get_fourier_size()-COLS)){
-            print_offset=0;
-        }
+        
           
       }
       if(c==2){
       
         reset_ft(0);
-         if(print_offset>(get_fourier_size()-COLS)){
-            print_offset=0;
-        }
+        
         
       
       }
       if(c==5){
       
         print_offset++;
-        if(print_offset>(get_fourier_size()-COLS)){
-            print_offset--;
-        }
+       clear();
         
       }
       if(c==4){
-       
+       clear();
         print_offset--;
         if(print_offset<0){
           print_offset=0;
         }
         
+      }
+      if(c=='0'){
+      	print_offset=0;
+      }
+      if(c=='d'){
+      	reset_ft(3);
       }
        int psize=get_fourier_size();
       	if(psize>COLS)
@@ -321,7 +372,7 @@ int main(int argn,char* argv[]){
       			psize=COLS;
       	}
       	ppointer=produce_period_gram(f16convert,SIZE,print_offset,COLS);
-      	if(argn>1&&argv[1][0]!='U'){
+      	if(argn>1&&argv[1][0]!='U'&&argv[1][0]!='V'){
        	 printft(ppointer,psize);
       	}else{
         	printspect(ppointer,psize);
