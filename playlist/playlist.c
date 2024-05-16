@@ -12,13 +12,14 @@ struct Playlist* create_new_playlist(char* name){
   sprintf(pl->name,"%s",name);
   pl->size=0;
   //date sets:
-  pl->day_st=0;
-  pl->hour_st=0;
-  pl->min_st=0;
+  pl -> tframes = NULL;
+  //pl->day_st=0;
+  //pl->hour_st=0;
+  //pl->min_st=0;
   //
-  pl->day_en=0;
-  pl->hour_en=0;
-  pl->min_en=0;
+  //pl->day_en=0;
+  //pl->hour_en=0;
+  //pl->min_en=0;
   pl->problist=create_new_markov_chain();
   return pl;
 }//rename
@@ -38,6 +39,17 @@ void free_playlist_from_memory(struct Playlist* pl){
 
   int size=pl->size;
   struct PlaylistHead* head=pl->head;
+  struct TimeFrame* tf = pl -> tframes;
+
+  while( tf != NULL ){
+    
+    struct TimeFrame* next = tf -> next;
+
+    free(tf);
+
+    tf = next;
+  }
+
   int i;
   for(i=0;i<size;i++){
     struct PlaylistHead* tsugi=head->next;
@@ -217,7 +229,13 @@ void print_playlist(struct Playlist* pl){
   int size=pl->size;
   struct PlaylistHead* atama=pl->head;
   int i;
-  printf("%d %d %d  -  %d %d %d\n",pl->day_st,pl->hour_st,pl->min_st,pl->day_en,pl->hour_en,pl->min_en);
+
+  struct TimeFrame* tf = pl -> tframes;
+  while( tf != NULL ){
+    printf("%d %d %d  -  %d %d %d\n",tf->day_st,tf->hour_st,tf->min_st,tf->day_en,tf->hour_en,tf->min_en);
+    tf = tf -> next;
+  }
+
   printf("name: %s, type:%d\n",pl->name,pl->type);
   printf("size: %d\n",size);
   for(i=0;i<size;i++){
@@ -262,3 +280,125 @@ struct PlaylistHead* get_head_location_at(struct Playlist* pl,int loc){
 	}
 	return NULL;
 }
+
+
+
+void put_date(struct Playlist* pl,char d_s, char h_s, char m_s, char d_e, char h_e, char m_e){
+  struct TimeFrame* tf = malloc(sizeof(struct TimeFrame));
+
+  tf -> day_st = d_s;
+
+  tf -> hour_st = h_s;
+
+  tf -> min_st = m_s;
+
+
+  tf -> day_en = d_e;
+
+  tf -> hour_en = h_e;
+
+  tf -> min_en = m_e;
+
+  tf -> next = pl -> tframes;
+  
+  pl -> tframes = tf;
+
+}
+
+int date_size(struct Playlist* pl){
+
+  struct TimeFrame* tf = pl -> tframes;
+
+  int c = 0;
+
+  while(tf != NULL){
+    c++;
+    tf = tf -> next;
+  }
+
+  return c;
+}
+
+void remove_date(struct Playlist* pl, int index){
+  
+  if(index == 0){
+    struct TimeFrame* next = pl -> tframes -> next;
+
+    free( pl -> tframes );
+    pl -> tframes = next;
+    return;
+  }
+
+  int i = 1;
+
+  struct TimeFrame* it = pl -> tframes -> next;
+  struct TimeFrame* prev = pl -> tframes;
+
+  while ( it != NULL ){
+    
+    if( i == index ){
+      prev -> next = it -> next;
+      free(it);
+      return;
+    }
+
+    i++;
+    it = it -> next;
+  }
+
+
+}
+
+struct TimeFrame* get_date_at(struct Playlist* pl, int index){
+
+  int i = 0;
+
+
+
+  struct TimeFrame* tf = pl -> tframes;
+
+  while( tf != NULL ){
+    if(i == index)
+      return tf;
+
+    i++;
+    tf = tf -> next;
+  }
+  return NULL;
+}
+
+// inclusive, returns 0 if in range, 1 if over, -1 if under
+//
+int is_date_in_scope(struct TimeFrame* tf, char d, char h, char m){
+  
+  unsigned long long start_stamp = (tf -> day_st)<<16 | (tf -> hour_st)<<8 | (tf -> min_st);
+
+  unsigned long long end_stamp = (tf -> day_en)<<16 | (tf -> hour_en)<<8 | (tf -> min_en);
+
+  unsigned long long c_stamp = d<<16 | h<<8 | m;
+
+  if( c_stamp > end_stamp )
+    return 1;
+
+  if( c_stamp < start_stamp )
+    return -1;
+
+  return 0;
+}
+
+int is_playlist_in_scope(struct Playlist* pl,char d, char h, char m){
+  struct TimeFrame* tf = pl -> tframes;
+  
+  if( tf == NULL ){
+    return 1;
+  }
+
+  while( tf != NULL ){
+    if( is_date_in_scope(tf, d, h , m) == 0)
+      return 1;
+    tf = tf -> next;
+  }
+  return -1;
+}
+
+

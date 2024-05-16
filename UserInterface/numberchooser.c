@@ -56,16 +56,21 @@ void draw_screen_time_chooser(int h,int m, int s,int h_e,int m_e,int s_e,int pos
 	if(pos==5){
 		attroff(A_STANDOUT);
 	}
-	if(m==0&&h==0&&s==0&&h_e==0&&m_e==0&&s_e==0){
-		mvprintw(4,0,"playlist will play all the time");
+  unsigned long long start = h<<16 | m<<8 | s;
+
+  unsigned long long end = h_e<<16 | m_e<<8 | s_e;
+
+  if(start == end){
+		mvprintw(4,0,"playlist will play for 1 minute");
 	}
-	if(h>h_e||(h==h_e&&m>m_e)||(h==h_e&&m==m_e&&s>s_e)){
+
+	if(end < start){
 		mvprintw(4,0,"playlist will never play");
 	}
 	mvprintw(5,0,"%d : %d : %d",c_day,c_hour,c_min);
 	refresh();
 }
-void time_chooser(struct Playlist* pl){
+void time_chooser(struct TimeFrame* pl){
 	int d=pl->day_st;
 	int h=pl->hour_st;
 	int m=pl->min_st;
@@ -115,7 +120,12 @@ void time_chooser(struct Playlist* pl){
 		if(c==2){
 			tmp--;
 			if(tmp<=0){
-				tmp=0;
+        if(pos == d || pos == de)
+				  tmp=6;
+
+        if((pos > 0 && pos < 3) || (pos > 3))
+          tmp =59;
+
 			}
 		}
 		
@@ -139,28 +149,28 @@ void time_chooser(struct Playlist* pl){
 			me=tmp;
 			break;
 		}
-		if(m>60){
+		if(m>59){
 			m=0;
 			h++;
 		}
-		if(h>60){
+		if(h>59){
 			h=0;
 			d++;
 		}
-		if(d>7){
+		if(d>6){
 			d=0;
 			h=0;
 			m=0;
 		}
-		if(me>60){
+		if(me>59){
 			me=0;
 			he++;
 		}
-		if(he>60){
+		if(he>59){
 			he=0;
 			de++;
 		}
-		if(de>7){
+		if(de>6){
 			de=0;
 			he=0;
 			me=0;
@@ -179,4 +189,100 @@ void time_chooser(struct Playlist* pl){
 	pl->min_en=me;
 	save_playlists();
 	release_data_mutex();
+}
+
+void draw_pl_screen(struct TimeFrame* root, int selected){
+  int i = 0;
+
+  time_t t = time(NULL);
+
+ 	struct tm *now = localtime(&t);
+  	int c_day=now->tm_wday;
+  	int c_hour=now->tm_hour;
+  	int c_min=now->tm_min;
+
+  
+  clear();
+  attron(A_STANDOUT);
+  mvprintw(0,0," n - new date, d - delete, i - edit, e - exit");
+  attroff(A_STANDOUT);
+  mvprintw(1,0,"%d : %d : %d", c_day, c_hour, c_min);
+
+  while( root != NULL ){
+      
+    if( i == selected )
+      attron(A_STANDOUT);
+
+	  mvprintw(i + 3,1,"%d : %d : %d  ->  %d : %d : %d",root -> day_st , root -> hour_st ,root -> min_st, root -> day_en, root -> hour_en, root -> min_en);
+   
+    if( i ==  selected)
+     attroff(A_STANDOUT);
+
+    i++;
+
+    root = root ->next;
+  }
+  refresh();
+
+}
+
+void playlist_time(struct Playlist* pl){
+  
+  int sel = 0;
+
+  draw_pl_screen(pl -> tframes, sel);
+
+  char c = 0;
+  
+  while ( (c = getch() ) != 'e' ){
+
+    
+    switch(c){
+      case 2:
+        sel++;
+        break;
+
+      case 3:
+        sel--;
+        break;
+
+
+      case 'd':
+        request_data_mutex();
+        remove_date(pl, sel);
+        release_data_mutex();
+        break;
+
+      case 'n':
+        request_data_mutex();
+        put_date(pl, 0,0,0,0,0,0);
+        release_data_mutex();
+        break;
+
+      case '\n':
+      case 'i':
+        time_chooser(get_date_at(pl, sel));
+        break;
+
+    }
+
+
+    int max = date_size(pl);
+
+    if(sel < 0 )
+      sel = 0;
+
+    if(sel >= max )
+      sel = max - 1;
+
+    
+
+    draw_pl_screen(pl -> tframes, sel);
+
+  }
+
+  request_data_mutex();
+  save_playlists();
+  release_data_mutex();
+
 }

@@ -18,13 +18,35 @@ void write_playlist_to_file_helper(struct Playlist* pl,char* file){
   pl->hour_en
   pl->min_en
   */
-   write_chain_to_file(pl->problist,f);
-  fwrite(&(pl->day_st),sizeof(char),1,f);
-  fwrite(&(pl->hour_st),sizeof(char),1,f);
-  fwrite(&(pl->min_st),sizeof(char),1,f);
-  fwrite(&(pl->day_en),sizeof(char),1,f);
-  fwrite(&(pl->hour_en),sizeof(char),1,f);
-  fwrite(&(pl->min_en),sizeof(char),1,f);
+  write_chain_to_file(pl->problist,f);
+
+  struct TimeFrame* tf = pl -> tframes;
+
+  int tcount = 0;
+  int i;
+
+  while( tf != NULL ){
+    tf = tf -> next;
+    tcount++;
+  }
+
+  fwrite(&tcount,sizeof(int), 1, f);
+
+  tf = pl -> tframes;
+
+  while( tf != NULL ){
+
+    fwrite(&(tf->day_st),sizeof(char),1,f);
+    fwrite(&(tf->hour_st),sizeof(char),1,f);
+    fwrite(&(tf->min_st),sizeof(char),1,f);
+    fwrite(&(tf->day_en),sizeof(char),1,f);
+    fwrite(&(tf->hour_en),sizeof(char),1,f);
+    fwrite(&(tf->min_en),sizeof(char),1,f);
+
+
+    tf = tf -> next;
+  }
+
   int ppsize=pl->size;
   int rtpe=pl->type;
   fwrite(&rtpe,sizeof(int),1,f);
@@ -34,7 +56,7 @@ void write_playlist_to_file_helper(struct Playlist* pl,char* file){
   fwrite(&size,sizeof(int),1,f);
   fwrite(name,sizeof(char),size,f);
   struct PlaylistHead* atama=pl->head;
-  int i;
+  
   for(i=0;i<ppsize;i++){
     fwrite(&(atama->probability),sizeof(int),1,f);
     size=strlen(atama->name);
@@ -53,21 +75,34 @@ void write_playlist_to_file_helper(struct Playlist* pl,char* file){
 struct Playlist* get_playlist_from_file(char* file){
 	
   FILE* f=fopen(file,"rb");
-  char day_st;
-  char hour_st;
-  char min_st;
-  char day_en;
-  char hour_en;
-  char min_en;
+
   struct PlaylistMarker* mchain=read_chain_from_file(f);
-  fread(&day_st,sizeof(char),1,f);
-  fread(&hour_st,sizeof(char),1,f);
-  fread(&min_st,sizeof(char),1,f);
-  fread(&day_en,sizeof(char),1,f);
-  fread(&hour_en,sizeof(char),1,f);
-  fread(&min_en,sizeof(char),1,f);
+
+  int tfsize;
+  fread(&tfsize, sizeof(int), 1, f);
+
+  int i;
+
+  struct TimeFrame* tfn = NULL;
+
+  for(i = 0; i < tfsize; i++){
+
+    struct TimeFrame* tf = malloc(sizeof(struct TimeFrame));
+    
+    fread(&(tf -> day_st),sizeof(char),1,f);
+    fread(&(tf -> hour_st),sizeof(char),1,f);
+    fread(&(tf -> min_st),sizeof(char),1,f);
+    fread(&(tf -> day_en),sizeof(char),1,f);
+    fread(&(tf -> hour_en),sizeof(char),1,f);
+    fread(&(tf -> min_en),sizeof(char),1,f);
+
+    tf -> next = tfn;
+    tfn = tf;
+
+  }
+
   int ppsize;
-    int typel;
+  int typel;
   fread(&typel,sizeof(int),1,f);
   fread(&ppsize,sizeof(int),1,f);
   int size;
@@ -76,18 +111,16 @@ struct Playlist* get_playlist_from_file(char* file){
   fread(plname,sizeof(char),size,f);
   plname[size]=0;
   struct Playlist* retp=create_new_playlist(plname);
-  retp->day_st=day_st;
-  retp->hour_st=hour_st;
-  retp->min_st=min_st;
-  retp->day_en=day_en;
-  retp->hour_en=hour_en;
-  retp->min_en=min_en;
+
+  retp -> tframes = tfn;
+
   free_memory_markov(retp->problist);
+
   retp->problist=mchain;
   retp->type=typel;
   free(plname);
   int prob;
-  int i;
+
   for(i=0;i<ppsize;i++){
     fread(&prob,sizeof(int),1,f);
     fread(&size,sizeof(int),1,f);

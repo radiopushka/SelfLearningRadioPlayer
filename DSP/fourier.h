@@ -5,8 +5,9 @@
   int get_fourier_size();
   //do not free the array this returns
   void init_fourier_transform(int max,double depth);//depth must be 1 or less, the lower the depth the more points get put in
+  //max is the number of points in the transform
   void free_fourier_transform();
-  void f16_array_to_int(char* in,int size,int* buffer);
+  void f16_array_to_int(char* in,int size,int* buffer,int channels);
   int get_freq_at_index(int index);
   //size of array buffer should be size/2
   int find_max_freq(int size,int* buffer);

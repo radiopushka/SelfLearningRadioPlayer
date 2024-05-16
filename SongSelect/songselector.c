@@ -38,16 +38,6 @@ void free_playlist_scope(){
 	}
 	scope_size=0;
 }
-int is_in_time_scope(int d, int h, int m,int df,int hf, int mf){
-	if(c_day>=d&&c_day<=df){
-		if((c_hour>=h||d!=c_day)&&(c_hour<=hf||df!=c_day)){
-			if((c_min>=m||d!=c_day||h!=c_hour)&&(c_min<=mf||df!=c_day||hf!=c_hour)){
-				return 1;
-			}
-		}	
-	}
-	return -1;
-}
 void scope_playlists(){
 	int c=playlist_count();
 	int i;
@@ -55,13 +45,9 @@ void scope_playlists(){
 	for(i=0;i<c;i++){
 		struct Playlist* pl=get_playlist_at_index(i);
 		if(pl->type==0){
-			if(pl->day_st==0&&pl->hour_st==0&&pl->min_st==0&&pl->day_en==0&&pl->hour_en==0&&pl->min_en==0){
-				count++;
-			}else{
-				if(is_in_time_scope(pl->day_st,pl->hour_st,pl->min_st,pl->day_en,pl->hour_en,pl->min_en)==1){
-					count++;
-				}
-			}
+      if( is_playlist_in_scope(pl, c_day, c_hour, c_min) == 1 ){
+        count++;
+      }
 		}
 	}
 	if(scope_size!=count){
@@ -75,14 +61,9 @@ void scope_playlists(){
 	for(i=0;i<c;i++){
 		struct Playlist* pl=get_playlist_at_index(i);
 		if(pl->type==0){
-			if(pl->day_st==0&&pl->hour_st==0&&pl->min_st==0&&pl->day_en==0&&pl->hour_en==0&&pl->min_en==0){
+      if(is_playlist_in_scope(pl, c_day, c_hour, c_min) == 1){
 				scope_list[itr]=pl;
 				itr++;
-			}else{
-				if(is_in_time_scope(pl->day_st,pl->hour_st,pl->min_st,pl->day_en,pl->hour_en,pl->min_en)==1){
-					scope_list[itr]=pl;
-					itr++;
-				}
 			}
 		}
 	}
@@ -95,7 +76,7 @@ char* generate_song_path(char* ignorepath){
 	int size;
 	for(i=0;i<scope_size;i++){
 		struct Playlist* pl=scope_list[i];
-		size=pl->size;
+		size=pl->size + 1;
 		t_size=t_size+size;
 		struct PlaylistMarker* problist=pl->problist;
 		if(ignorepath!=NULL){
@@ -191,12 +172,8 @@ char* get_id_path(){
 	for(i=0;i<c;i++){
 		struct Playlist* pl=get_playlist_at_index(i);
 		if(pl->type!=0){
-			if(pl->day_st==0&&pl->hour_st==0&&pl->min_st==0&&pl->day_en==0&&pl->hour_en==0&&pl->min_en==0){
+      if(is_playlist_in_scope(pl, c_day, c_hour, c_min) == 1){
 				t_size=t_size+pl->size;
-			}else{
-				if(is_in_time_scope(pl->day_st,pl->hour_st,pl->min_st,pl->day_en,pl->hour_en,pl->min_en)==1){
-					t_size=t_size+pl->size;
-				}
 			}
 		}
 	}
@@ -213,20 +190,12 @@ char* get_id_path(){
 	for(i=0;i<c;i++){
 		struct Playlist* pl=get_playlist_at_index(i);
 		if(pl->type!=0){
-			if(pl->day_st==0&&pl->hour_st==0&&pl->min_st==0&&pl->day_en==0&&pl->hour_en==0&&pl->min_en==0){
+      if( is_playlist_in_scope(pl, c_day, c_hour, c_min) == 1){
 				if(t_size<=rsel&&rsel<(t_size+pl->size)){
 					retpath=get_songfile_at_index(pl,rsel-t_size);
 					break;
 				}
 				t_size=t_size+pl->size;
-			}else{
-				if(is_in_time_scope(pl->day_st,pl->hour_st,pl->min_st,pl->day_en,pl->hour_en,pl->min_en)==1){
-					if(t_size<=rsel&&rsel<(t_size+pl->size)){
-						retpath=get_songfile_at_index(pl,rsel-t_size);
-						break;
-					}
-					t_size=t_size+pl->size;
-				}
 			}
 		}
 	}
@@ -263,6 +232,7 @@ struct Song* get_next_song(char* ignorepath){//ignore path is the path of the pr
 		}
 		prev_path_queue=pointerize(atama->path);
 		pop_from_stack(&queue);
+    save_playlists();
 		return atama;
 	}else{
 		if(prev_path_queue!=NULL){

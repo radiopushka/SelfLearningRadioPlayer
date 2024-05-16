@@ -378,7 +378,7 @@ void playlist_selection_screen(){
 		}
 		if(c=='k'){
 			struct Playlist* plst= get_playlist_at_index(pos);
-			time_chooser(plst);
+			playlist_time(plst);
 		}
 		if(c=='i'){
 			struct Playlist* plst= get_playlist_at_index(pos);

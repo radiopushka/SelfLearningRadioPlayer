@@ -84,7 +84,7 @@ void init_fourier_transform(int size,double depth){//this size is f16 char divid
  	 	frequency_pre_calc_c[i]=NULL;
  	 	frequency_pre_calc_s[i]=NULL;
  	 }
-    frequencymap=malloc(sizeof(int)*gramsize);
+    frequencymap=malloc(sizeof(int)*(gramsize+1));
  	  darray=malloc(sizeof(double)*(gramsize));
  	  attwindow=malloc(sizeof(double)*(size));
  	  double stepc=(PI)/(size-1);
@@ -106,6 +106,7 @@ double* produce_period_gram(int* buffer, int size,int start,int stop){//this siz
     darray[array_step]=calc_amplitude(buffer,size,i);
     frequencymap[array_step]=i;
     array_step++;
+    frequencymap[array_step]=-1;
   }
   return darray;
 
@@ -127,14 +128,27 @@ int find_max_freq(int size,int* buffer){
 int get_fourier_size(){
 	return gramsize;
 }
-void f16_array_to_int(char* in,int size,int* buffer){//size of buffer: size/2
+void f16_array_to_int(char* in,int size,int* buffer,int channels){//size of buffer: size/2
   int i;
   short perm;
-  int ssize=size>>1;
+  int ssize=(size>>1)*channels;
+
   short* typecc=(short*)in;
+  int ccount=0;
+  int nindex=0;
+  int f16index=0;
   for(i=0;i<ssize;i++){
     perm=typecc[i];
+    nindex=i;//if we have more than one channel, we or them so that both are displayed
+    for(ccount=1;ccount<channels;ccount++){
+      nindex++;
+      perm=(perm/2+typecc[nindex]/2);
+    }
+    //take the average of the channels
+    ccount=0;
     perm=perm*attwindow[i];
-    buffer[i]=perm;
+    buffer[f16index]=perm;
+    f16index++;//convert it to mono
+    i=nindex;
   }
 }

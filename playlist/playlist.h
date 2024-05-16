@@ -9,17 +9,34 @@ struct PlaylistHead{
   int probability;
 };
 
+struct TimeFrame{
+   char day_st;
+   char hour_st;
+   char min_st;
+   char day_en;
+   char hour_en;
+   char min_en;
+
+
+   struct TimeFrame* next;
+};
+
 struct Playlist{
   struct PlaylistHead* head;
   char* name;
   int type;
   int size;
-  char day_st;
-  char hour_st;
-  char min_st;
-  char day_en;
-  char hour_en;
-  char min_en;
+
+  //suppoert for many time frames
+  //char day_st;
+  //char hour_st;
+  //char min_st;
+  //char day_en;
+  //char hour_en;
+  //char min_en;
+
+  struct TimeFrame* tframes;
+
   struct PlaylistMarker* problist;
 };
 
@@ -59,6 +76,24 @@ int find_index_match_file(struct Playlist* pl, char* file);
 
 struct PlaylistHead* get_head_location_at(struct Playlist* pl,int loc);
 //do not free the value this returns
+
+
+// date control functions:
+//
+void put_date(struct Playlist* pl,char d_s, char h_s, char m_s, char d_e, char h_e, char m_e);
+
+// number of indexes in the date structure
+int date_size(struct Playlist* pl);
+
+//removes the date at index int the list
+void remove_date(struct Playlist* pl, int index);
+
+//gets the date at that index
+struct TimeFrame* get_date_at(struct Playlist* pl, int index);
+
+//returns 1 if the date falls in the range of the playlist
+//returns 1 if no dates are set
+int is_playlist_in_scope(struct Playlist* pl,char d, char h, char m);
 
 #endif
 
